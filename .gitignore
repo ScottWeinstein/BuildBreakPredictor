@@ -17,6 +17,9 @@ syntax: glob
 # idea
 .idea
 *.iml
+*.ipr
+*.iws
+
 
 # building
 target
@@ -39,3 +42,10 @@ build.log
 
 #SHITTY output not in target directory
 build.log
+.history
+
+
+password.txt
+facts.json
+
+*.asv
