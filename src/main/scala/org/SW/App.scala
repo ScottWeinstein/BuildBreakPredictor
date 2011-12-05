@@ -27,9 +27,8 @@ object App {
       val factsJson = write(facts)
       output.write(factsJson)
     }
-
     val input:Input = Resource.fromFile("./target/" + fileName + ".json")
-    val facts = read[List[BuildChangeFact]](input.slurpString)
+    val facts = read[Iterable[List[BuildChangeFact]]](input.slurpString)
 
     val Xinfo = tcdp.Fact2Matrix(facts)
     LinAlg.Matrix2Csv(Xinfo._1,Xinfo._2,"./target/" + fileName + ".csv")

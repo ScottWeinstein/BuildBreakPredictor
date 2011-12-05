@@ -11,6 +11,7 @@ import scalala.tensor.{Matrix, ::}
 import scalaz._
 import Scalaz._
 import collection.immutable
+import immutable.{List, Iterable}
 
 class TeamCityDataProvider(creds: RunParams) {
   implicit val formats = new DefaultFormats {
@@ -32,9 +33,13 @@ class TeamCityDataProvider(creds: RunParams) {
     Extraction.extract[T](jValue)
   }
 
-  def Facts(buildId: String, count:Int = 10000) = {
-      val bsrf = http(baseUrl / "httpAuth/app/rest/buildTypes/id:%s/builds/?count=%d".format(buildId, count) >- parseJson[BuildStatusRefList])
-    bsrf.build.map(bsr => bsr.href.substring(1)).flatMap(url => getBuildChangeFact(baseUrl, url))
+  def Facts(buildId: String, count:Int = 10000): Iterable[List[BuildChangeFact]] = {
+    val url = baseUrl / "httpAuth/app/rest/buildTypes/id:%s/builds/?count=%d".format(buildId, count)
+    val buildStatusRefs:List[BuildStatusRef] = http( url >- parseJson[BuildStatusRefList]).build
+    buildStatusRefs.map(bsr => bsr.href.substring(1))
+                    .flatMap(url => getBuildChangeFact(baseUrl, url))
+                    .groupBy(bcf => bcf.id)
+                    .map((item) => item._2)
   }
 
   def getBuildChangeFact(baseUrl: Request, url:String): List[BuildChangeFact] = {
@@ -51,7 +56,8 @@ class TeamCityDataProvider(creds: RunParams) {
           val fileMap = cd.files.getOrElse(defaultFileMap)
           val fileCounts = fileMap("file").groupBy(f => f.file.split("/").last).mapValues(lst => lst.size)
           val dt = new org.joda.time.DateTime(bs.startDate.head)
-          new BuildChangeFact(bs.id, bs.status == "SUCCESS", dt.getMinuteOfDay, dt.getDayOfWeek, cd.username, fileCounts)
+
+          new BuildChangeFact(bs.id, ch.`@id`, cd.id, dt.toString, bs.status == "SUCCESS", dt.getMinuteOfDay, dt.getDayOfWeek, cd.username, fileCounts)
         })
       }
     }

@@ -19,7 +19,7 @@ libraryDependencies ++= Seq(
   "org.scalaz" %% "scalaz-core" % "6.0.3",
   "com.github.scala-incubator.io" %% "scala-io-core" % "0.2.0",
   "com.github.scala-incubator.io" %% "scala-io-file" % "0.2.0",
-  "junit" % "junit" % "4.5" % "test",
+  "junit" % "junit" % "4.10" % "test",
   "org.scala-tools.testing"  %% "specs"  % "1.6.9"  % "test",
   "org.scalatest"  %% "scalatest"  % "1.6.1"  % "test",
   "org.scala-tools.testing" %% "scalacheck" % "1.9" % "test"

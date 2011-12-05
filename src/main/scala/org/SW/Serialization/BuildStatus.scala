@@ -46,4 +46,3 @@ case class ChangeDetail(username: String,
                         files: Option[Map[String, List[ChangeDetailFileItem]]])
 case class ChangeDetailFileItem(`relative-file`: String, file: String, `after-revision`: String, `before-revision`: String)
 
-case class BuildChangeFact(id: Int, success: Boolean, startMin: Int, runDay: Int, commiters: String, fileChangeType: Map[String, Int])
