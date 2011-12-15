@@ -28,9 +28,9 @@ object App {
       output.write(factsJson)
     }
     val input:Input = Resource.fromFile("./target/" + fileName + ".json")
-    val facts = read[Iterable[List[BuildChangeFact]]](input.slurpString)
+    val facts = read[List[List[BuildChangeFact]]](input.slurpString)
 
-    val Xinfo = tcdp.Fact2Matrix(facts)
+    val Xinfo = tcdp.Fact2Matrix(facts, 0)
     LinAlg.Matrix2Csv(Xinfo._1,Xinfo._2,"./target/" + fileName + ".csv")
 
     //val (X_norm, factors) = tcdp.FeatureNormalize(X)

@@ -10,8 +10,8 @@ import scalala.operators.Implicits._
 import scalala.tensor.{Matrix, ::}
 import scalaz._
 import Scalaz._
-import collection.immutable
-import immutable.{List, Iterable}
+//import collection.immutable
+//import immutable.{List, Iterable}
 
 class TeamCityDataProvider(creds: RunParams) {
   implicit val formats = new DefaultFormats {
@@ -39,7 +39,7 @@ class TeamCityDataProvider(creds: RunParams) {
     buildStatusRefs.map(bsr => bsr.href.substring(1))
                     .flatMap(url => getBuildChangeFact(baseUrl, url))
                     .groupBy(bcf => bcf.id)
-                    .map((item) => item._2)
+                    .map(item => item._2)
   }
 
   def getBuildChangeFact(baseUrl: Request, url:String): List[BuildChangeFact] = {
@@ -64,45 +64,81 @@ class TeamCityDataProvider(creds: RunParams) {
   }
 
   // matrix will have the Y value, day of week, min - by 1/2 hr, users, files
-  def Fact2Matrix(facts: List[BuildChangeFact]):(Matrix[Int], List[String]) = {
-    val users = facts.map(f => f.commiters).distinct.toList
+  def Fact2Matrix(facts: Iterable[List[BuildChangeFact]], threshold: Int = 3):(Matrix[Int], List[String]) = {
+    val flatFacts = facts.flatten(a => a)
 
+    val users = flatFacts.map(f => f.commiters).toList.distinct
 
-    val fileCountThresholdFilter = (p:(String, Int)) => p._2 > 5
-    val fileCounts = facts.foldLeft(immutable.Map.empty[String, Int])((map,f) => map |+| f.fileChangeType)
-                            .filter(fileCountThresholdFilter);
+    val fileCountThresholdFilter = (p:(String, Int)) => p._2 >= threshold
+    val emptyMap = Map.empty[String, Int]
+    val fileCounts = flatFacts.foldLeft(emptyMap)((map,f) => map |+| f.fileChangeType)
+                               .filter(fileCountThresholdFilter)
+
     val files = fileCounts.keys.toList;
 
     val numsimiHrs = 24*60/30
-    val n:Int = 1 + 7 + numsimiHrs + users.size  + files.size
+    def n =
+      1 + //Y
+      7 + // days
+      numsimiHrs + // num 1/2 hours in day
+      1 + // timespan since last
+      1 + // number of users
+      users.size +
+      1 + // number of files
+      files.size
+
     val m:Int = facts.size
     val X = DenseMatrix.zeros[Int](m, n)
 
-    def f2v(f:BuildChangeFact): Vector[Int] = {
+    def f2v(fs: List[BuildChangeFact]): Vector[Int] = {
       val row = DenseVector.zeros[Int](n)
-      row(0) = (if (f.success) 1 else 0)
-      row(1 + f.runDay-1) = 1; // dayOfWeek is 1-7
-      row(1 + 7 + f.startMin/30) = 1
-      row(1 + 7 + numsimiHrs + users.indexOf(f.commiters)) = 1
+      val topFact = fs(0)
+      val userCounts = fs.map(f=>f.commiters).foldLeft(Map[String, Int]()){
+        (m, c) => m.updated(c, m.getOrElse(c, 0) + 1)
+      }
+      var ind = 0
+      row(ind) = (if (topFact.success) 1 else 0) // Y
+      
+      ind = 1;
+      row(ind + topFact.runDay-1) = 1; // dayOfWeek is 1-7
+      ind += 7
+      row(ind + topFact.startMin/30) = 1 // semiHr
+      
+      ind += numsimiHrs
+      row(ind) = -1
 
-      f.fileChangeType
-       .filter(fileCountThresholdFilter)
-       .foreach((item) => {
+      ind += 1
+      row(ind) = userCounts.size
+      ind += 1
+      userCounts.foreach(item => {
+          val (user, count) = item
+          row(ind + users.indexOf(user)) = count
+        })
+      ind += users.size
+      // TODO - fix filter
+      var filesInGroup = fs.foldLeft(emptyMap)((map,f) => map |+| f.fileChangeType).filter(fileCountThresholdFilter)
+      row(ind) = filesInGroup.size
+      ind += 1
+      filesInGroup.foreach((item) => {
         val (fileName, count) = item
-        val fileInd = 1 + 7 + numsimiHrs + users.size + files.indexOf(fileName)
+        val fileInd = ind + files.indexOf(fileName)
         row(fileInd) = count
       })
       row
     }
 
+    var flst = facts.toList
     for (ii <- 0 until m) {
-      X(ii,::) := f2v(facts(ii))
+      X(ii,::) := f2v(flst(ii))
     }
 
     val colNames:List[String] = List("Y") ++
                                 Range(1,8).map(d => "Day" + d) ++
                                 Range(0,numsimiHrs).map(d => "SemHr" + d) ++
+                                List("TimeSinceLast") ++
+                                List("UserCount") ++
                                 users ++
+                                List("FileCount") ++
                                 files
     return (X, colNames)
   }
