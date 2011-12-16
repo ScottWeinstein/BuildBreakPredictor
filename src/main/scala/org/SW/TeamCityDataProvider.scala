@@ -10,8 +10,8 @@ import scalala.operators.Implicits._
 import scalala.tensor.{Matrix, ::}
 import scalaz._
 import Scalaz._
-//import collection.immutable
-//import immutable.{List, Iterable}
+import collection.Iterable
+import org.joda.time.{Duration, DateTime}
 
 class TeamCityDataProvider(creds: RunParams) {
   implicit val formats = new DefaultFormats {
@@ -55,7 +55,8 @@ class TeamCityDataProvider(creds: RunParams) {
           val cd = http(baseUrl / ch.`@href`.substring(1) >- parseJson[ChangeDetail])
           val fileMap = cd.files.getOrElse(defaultFileMap)
           val fileCounts = fileMap("file").groupBy(f => f.file.split("/").last).mapValues(lst => lst.size)
-          val dt = new org.joda.time.DateTime(bs.startDate.head)
+          println(bs.startDate.head)
+          val dt = new DateTime(bs.startDate.head)
 
           new BuildChangeFact(bs.id, ch.`@id`, cd.id, dt.toString, bs.status == "SUCCESS", dt.getMinuteOfDay, dt.getDayOfWeek, cd.username, fileCounts)
         })
@@ -96,26 +97,20 @@ class TeamCityDataProvider(creds: RunParams) {
       val userCounts = fs.map(f=>f.commiters).foldLeft(Map[String, Int]()){
         (m, c) => m.updated(c, m.getOrElse(c, 0) + 1)
       }
-      var ind = 0
-      row(ind) = (if (topFact.success) 1 else 0) // Y
-      
-      ind = 1;
-      row(ind + topFact.runDay-1) = 1; // dayOfWeek is 1-7
-      ind += 7
-      row(ind + topFact.startMin/30) = 1 // semiHr
-      
-      ind += numsimiHrs
-      row(ind) = -1
 
-      ind += 1
-      row(ind) = userCounts.size
-      ind += 1
+      row(0) = (if (topFact.success) 1 else 0) // Y
+
+      row(1 + topFact.runDay-1) = 1; // dayOfWeek is 1-7
+
+      row(8 + topFact.startMin/30) = 1 // semiHr
+      
+      row(9 + numsimiHrs) = userCounts.size
+      var ind = 10 + numsimiHrs
       userCounts.foreach(item => {
           val (user, count) = item
           row(ind + users.indexOf(user)) = count
         })
       ind += users.size
-      // TODO - fix filter
       var filesInGroup = fs.foldLeft(emptyMap)((map,f) => map |+| f.fileChangeType).filter(fileCountThresholdFilter)
       row(ind) = filesInGroup.size
       ind += 1
@@ -126,10 +121,18 @@ class TeamCityDataProvider(creds: RunParams) {
       })
       row
     }
-
-    var flst = facts.toList
+    val flst = facts.toList.sortBy(a => new DateTime(a.head.date).getMillis)
     for (ii <- 0 until m) {
       X(ii,::) := f2v(flst(ii))
+    }
+
+    if (facts.size > 1) {
+      val dates = flst.map(fg => new DateTime(fg(0).date))
+      val runningTimeSpans = Iterable(0) ++ dates.zip(dates.tail).map(pair => new Duration(pair._1, pair._2).getStandardSeconds.toInt)
+      //      println(flst.map(fg => fg(0).date))
+      //      println(dates)
+      //      println(runningTimeSpans)
+      X(::,56) := runningTimeSpans.toArray.asVector
     }
 
     val colNames:List[String] = List("Y") ++
@@ -142,9 +145,4 @@ class TeamCityDataProvider(creds: RunParams) {
                                 files
     return (X, colNames)
   }
-
-//  def FeatureNormalize(matrix: Matrix[Double]) = {
-//
-//  }
-
 }

@@ -33,9 +33,6 @@ object App {
     val Xinfo = tcdp.Fact2Matrix(facts, 0)
     LinAlg.Matrix2Csv(Xinfo._1,Xinfo._2,"./target/" + fileName + ".csv")
 
-    //val (X_norm, factors) = tcdp.FeatureNormalize(X)
-    //println(X)
-
   }
 }
 

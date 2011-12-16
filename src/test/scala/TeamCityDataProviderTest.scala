@@ -4,8 +4,8 @@ import org.scalatest.Spec
 import org.scalatest.matchers.MustMatchers
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import org.specs.runner.TeamCityUtils
 import Serialization.RunParams
+import org.joda.time.{Period, DateTime}
 
 
 @RunWith(classOf[JUnitRunner])
@@ -23,5 +23,15 @@ class TeamCityDataProviderTest extends Spec with MustMatchers {
       matrix.numCols must equal (61)
       cols.size must equal (61)
     }
+    
+    it("must scan dates") {
+      val a = new DateTime()
+      val b = new DateTime()
+      val c = new Period(b,a)
+      c.getSeconds
+
+
+    }
+    
   }
 }
