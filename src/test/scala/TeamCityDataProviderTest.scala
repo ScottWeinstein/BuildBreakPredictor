@@ -29,9 +29,6 @@ class TeamCityDataProviderTest extends Spec with MustMatchers {
       val b = new DateTime()
       val c = new Period(b,a)
       c.getSeconds
-
-
     }
-    
   }
 }
